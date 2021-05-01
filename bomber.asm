@@ -17,6 +17,7 @@ JetColorPtr        word    ; pointer to player0 color table
 BomberSpritePtr    word    ; pointer to player1 sprite table
 BomberColorPtr     word    ; pointer to player1 color table
 JetAnimationOffset word    ; player0 sprite frame offset for amination
+Random             byte    ; random number generated
 
     ; define constants
 JET_HEIGHT    = 9          ; player0 sprite hegiht 
@@ -32,12 +33,15 @@ Reset:
     ; initialize RAM variables and TIA registers
     lda #10
     sta JetYPos            ; JetYPos = 10
-    lda #0
+    lda #60
     sta JetXPos            ; JetXPos = 60
     lda #83
     sta BomberYPos         ; BomberYPos = 83
     lda #54
     sta BomberXPos         ; BomberXPos = 54
+
+    lda #%11010100
+    sta Random             ; Random = $D4
 
     ; initialize the pointers to the correct lookup table adresses
     lda #<PlayerSprite0
@@ -121,12 +125,12 @@ GameVisibleLines:
 .DrawSpriteP0:
     clc                     ; clear carry-flag before addition
     adc JetAnimationOffset  ; jump to the correct sprite frame address in memory 
-    tay                  ; load Y so we can work whit the pointer
-    lda (JetSpritePtr),Y ; load player0 bitmap from lookup table
-    sta WSYNC            ; wait for scanLine
-    sta GRP0             ; set graphics for player0
-    lda (JetColorPtr),Y  ; load player0 color from lookup table
-    sta COLUP0           ; set color for player0
+    tay                     ; load Y so we can work whit the pointer
+    lda (JetSpritePtr),Y    ; load player0 bitmap from lookup table
+    sta WSYNC               ; wait for scanLine
+    sta GRP0                ; set graphics for player0
+    lda (JetColorPtr),Y     ; load player0 color from lookup table
+    sta COLUP0              ; set color for player0
 ;********************************************************************************
 .AreWeInsideBomberSprite:
     txa                    ; transfer x to A
@@ -207,8 +211,8 @@ UpdateBomberPosition:
     dec BomberYPos                  ; else, decrement enemy y position
     jmp EndPositionUpdate
 .ResetBomberPosition
-    lda #96
-    sta BomberYPos
+    jsr GetRandomBomberPosition     ; call subroutine for next random enemy x position
+    
 EndPositionUpdate:          ; fallback for the position update
 
     ; Loop back to Start a brand new frame
@@ -229,6 +233,31 @@ SetObjectXPos subroutine
     sta HMP0,Y           ; store the fine offset to the correct HMxx
     sta RESP0,Y          ; fix object position in 15-step increment
     rts
+
+; subroutine to generate random number
+GetRandomBomberPosition subroutine
+    lda Random
+    asl
+    eor Random
+    asl
+    eor Random
+    asl
+    asl
+    eor Random
+    asl
+    rol Random
+
+    lsr
+    lsr                  ; divide the value by 4 with 2 right shift
+    sta BomberXPos       ; save it to the variable BomberXPos
+    lda #30
+    adc BomberXPos       ; adds 30 + BomberXPos to compensate for left PF
+    sta BomberXPos       ; sets the new value to the BomberXPos
+
+    lda #96
+    sta BomberYPos       ; sets the BomberYPos to the top of the screen
+    rts
+    
 
     ; Declare ROM lookup tables
 PlayerSprite0
