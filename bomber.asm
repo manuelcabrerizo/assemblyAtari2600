@@ -107,7 +107,7 @@ StartFrame:
     lda #0
     sta VSYNC             ; turn off VSYNC
 
-    REPEAT 33
+    REPEAT 32
         sta WSYNC        ; display the 37 recomended line of VSYNC
     REPEND
 
@@ -126,6 +126,8 @@ StartFrame:
     jsr SetObjectXPos    ; set missile horizonta position
 
     jsr CalculateDigitOffset ; calculate the scoreboard digit lookup table offset
+    
+    jsr GeneratrJetSound     ; configure and enable JetEgnine audio
 
     sta WSYNC
     sta HMOVE             ; apply the horizonta positions
@@ -228,7 +230,7 @@ GameVisibleLines:
     txa                 ; transfer x to A
     sec                 ; make sure the carry flag is set before subtraction
     sbc JetYPos         ; subtract sprite Y-coord
-    cmp JET_HEIGHT      ; are we inside the sprite
+    cmp #JET_HEIGHT      ; are we inside the sprite
     bcc .DrawSpriteP0   ; if result < SpriteHeight, call the draw routine
     lda #0              ; else, set lookup index to zero
 .DrawSpriteP0:
@@ -245,7 +247,7 @@ GameVisibleLines:
     txa                    ; transfer x to A
     sec                    ; make sure the carry flag is set before subtraction
     sbc BomberYPos         ; subtract sprite Y-coord
-    cmp BOMBER_HEIGHT      ; are we inside the sprite
+    cmp #BOMBER_HEIGHT      ; are we inside the sprite
     bcc .DrawSpriteP1      ; if result < SpriteHeight, call the draw routine
     lda #0                 ; else, set lookup index to zero
 .DrawSpriteP1:
@@ -312,7 +314,7 @@ CheckP0Left:
     cmp #35
     bmi CheckP0Right
     dec JetXPos
-    lda JET_HEIGHT           ; 9
+    lda #JET_HEIGHT           ; 9
     sta JetAnimationOffset   ; set JetAnimationOffset to the second frame
 
 CheckP0Right:
@@ -324,7 +326,7 @@ CheckP0Right:
     cmp #100
     bpl CheckButtonPress
     inc JetXPos
-    lda JET_HEIGHT          ; 9
+    lda #JET_HEIGHT          ; 9
     sta JetAnimationOffset  ; set JetAnimationOffset to the second frame
 
 CheckButtonPress:
@@ -358,11 +360,6 @@ UpdateBomberPosition:
 .SetScoreValues:
     sed                      ; set decimal mode for score and timer
 
-    lda Score
-    clc
-    adc #1
-    sta Score
-
     lda Timer
     clc
     adc #1
@@ -378,15 +375,51 @@ CheckCollitionP0P1:
     bit CXPPMM             ; check CXPPMM bit 7 with the above pattern
     bne .CollitionP0P1     ; collition hapend
     jsr SetTerrainRiverColor ; set playfield color to green and blue
-    jmp EndCollitionCheck
+    jmp CheckCollitionM0P1
 .CollitionP0P1:
     jsr GameOver
+
+CheckCollitionM0P1:
+    lda #%10000000
+    bit CXM0P
+    bne .CollitionM0P1
+    jmp EndCollitionCheck
+.CollitionM0P1:
+    sed
+    lda Score
+    clc
+    adc #1
+    sta Score            ; adds one to the score using decimal mode
+    cld
+    lda #0
+    sta MissileYPox
 
 EndCollitionCheck:         ; fallback
      sta CXCLR             ; reset collition flags
 
     ; Loop back to Start a brand new frame
     jmp StartFrame       ; continue to display next frame
+
+; subroutine to generate audio for the Jet base on the Jet y-position
+GeneratrJetSound subroutine
+    lda #3
+    sta AUDV0 
+
+    lda JetYPos
+    lsr 
+    lsr
+    lsr
+    sta Temp
+    lda #25
+    sec
+    sbc Temp
+    sta AUDF0
+
+    lda #8
+    sta AUDC0
+
+    rts
+
 
 SetTerrainRiverColor subroutine
     lda #$C2
